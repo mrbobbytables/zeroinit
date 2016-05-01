@@ -1,0 +1,117 @@
+#cloud-config
+
+cloud_init_modules:
+ - migrator
+ - seed_random
+ - bootcmd
+ - write-files
+ - growpart
+ - resizefs
+ - set_hostname
+ - update_hostname
+ - update_etc_hosts
+ - ca-certs
+ - rsyslog
+ - users-groups
+ - ssh
+
+cloud_config_modules:
+ - emit_upstart
+ - disk_setup
+ - mounts
+ - ssh-import-id
+ - locale
+ - set-passwords
+ - grub-dpkg
+ - apt-pipelining
+ - apt-configure
+ - package-update-upgrade-install
+ - timezone
+ - disable-ec2-metadata
+ - ssh-authkey-fingerprints
+ - keys-to-console
+ - runcmd
+
+cloud_final_modules:
+ - rightscale_userdata
+ - scripts-vendor
+ - scripts-per-once
+ - scripts-per-boot
+ - scripts-per-instance
+ - scripts-user
+ - phone-home
+ - final-message
+ - power-state-change
+
+
+
+
+groups: 
+  - provision
+
+users: 
+  - 
+    gecos: "ansible user"
+    groups: adm
+    name: provision
+    primary-group: provision
+    ssh-authorized-keys: 
+      - <pub_key>
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    system: true
+
+apt_mirror_search:
+  - http://ftp.ussg.iu.edu/linux/ubuntu/
+  - http://ubuntu.osuosl.org/ubuntu/
+  - http://ubuntu.localmsp.org/ubuntu/
+
+apt_sources:
+  - source: deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main 
+    filename: ansible.list
+    keyid: 7BB9C367
+    keyserver: keyserver.ubuntu.com
+
+packages: 
+  - ansible
+  - python3-pip
+  - vim
+
+write_files: 
+  - 
+    content: |
+      [defaults]
+      remote_tmp = /tmp/${USER}/ansible
+      host_key_checking = False
+      [privilege_escalation]
+      [paramiko_connection]
+      [ssh_connection]
+      scp_if_ssh = True
+      [accelerate]
+      [selinx]
+      [colors]
+    owner: "root:root"
+    path: /etc/ansible/ansible.cfg
+    permissions: '0600'
+
+  - 
+    content: <priv_key>
+    owner: "root:root"
+    path: /etc/ansible/keys/bootstrap/id_rsa
+    permissions: "0600"
+
+  - 
+    content: <pub_key>
+    owner: "root:root"
+    path: /etc/ansible/keys/bootstrap/id_rsa.pub
+    permissions: "0600"
+
+
+
+runcmd: 
+  - "service ssh start"
+  - "pip3 install zeroconf"
+  - "cd / && ./bootstrap.py --iface eth0 --expect 3 --log_level info --action ./leader.sh"
+
+output: 
+  all: "| tee -a /var/log/cloud-init-worked.log"
+

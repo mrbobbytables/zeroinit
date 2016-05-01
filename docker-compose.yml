@@ -1,0 +1,21 @@
+version: '2'
+services:
+  master:
+    build: containers/bootstrap_base
+    networks:
+      - cluster
+    volumes:
+      - ./cloud-config/user-data:/var/lib/cloud/seed/nocloud-net/user-data:ro
+      - ./scripts/bootstrap.py:/bootstrap.py:ro
+      - ./scripts/leader.sh:/leader.sh:ro
+      - ./ansible/bootstrap_masters.yml:/etc/ansible/bootstrap_masters.yml:ro
+
+
+networks:
+  cluster:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.219.0/24
+          gateway: 192.168.219.1

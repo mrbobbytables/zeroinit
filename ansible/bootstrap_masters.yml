@@ -1,0 +1,47 @@
+---
+- hosts: localhost
+  connection: local
+  user: provision
+  become: yes
+  become_method: sudo
+  tasks:
+    - name: create provision key directory
+      file: path=/etc/ansible/keys/provision state=directory mode=0700
+
+    - name: generate provisioning key
+      command:  ssh-keygen -t rsa -N '' -f /etc/ansible/keys/provision/id_rsa creates=/etc/ansible/keys/provision/id_rsa
+
+    - name: restrict access to provision key
+      file: path={{ item }} mode=0600
+      with_items:
+        - /etc/ansible/keys/provision/id_rsa
+        - /etc/ansible/keys/provision/id_rsa.pub
+
+
+- hosts: masters
+  remote_user: provision
+  become: true
+  become_method: sudo
+  tasks:
+    - stat: path=/etc/ansible/keys/provision/id_rsa
+      register: leader
+
+    - name: create provision key directory
+      file: path=/etc/ansible/keys/provision state=directory
+      when: leader.stat.exists == False
+
+    - name: copy provision keys to ansible directory
+      copy:  src={{ item }} dest={{ item }} owner=root group=root mode=0600
+      when: leader.stat.exists == False
+      with_items: 
+        - /etc/ansible/keys/provision/id_rsa
+        - /etc/ansible/keys/provision/id_rsa.pub
+
+    - name: copy provision keys to provision user
+      copy:  src={{ item.src }} dest={{ item.dest }} owner=provision group=provision mode=0600
+      with_items: 
+        - { 'src': '/etc/ansible/keys/provision/id_rsa', 'dest': '/home/provision/.ssh/id_rsa' }
+        - { 'src': '/etc/ansible/keys/provision/id_rsa.pub', 'dest': '/home/provision/.ssh/id_rsa.pub' }
+
+    - name: revoke bootstrap key and add provision key to authorized users
+      authorized_key: user=provision key="{{ lookup('file', '/home/provision/.ssh/id_rsa.pub') }}"  state=present exclusive=yes
